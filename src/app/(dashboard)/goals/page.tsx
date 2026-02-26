@@ -21,6 +21,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { useCurrentCompany } from '@/contexts/company-context';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -356,26 +357,11 @@ function AddGoalModal({
 // ---------------------------------------------------------------------------
 
 export default function GoalsPage() {
+  const company = useCurrentCompany();
+  const companyId = company?.id || null;
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [companyId, setCompanyId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-
-  // Load company
-  useEffect(() => {
-    async function loadCompany() {
-      try {
-        const res = await fetch('/api/companies');
-        const data = await res.json();
-        if (data.success && data.companies?.length > 0) {
-          setCompanyId(data.companies[0].id);
-        }
-      } catch (err) {
-        console.error('Failed to load company', err);
-      }
-    }
-    loadCompany();
-  }, []);
 
   // Load goals
   const fetchGoals = useCallback(async () => {

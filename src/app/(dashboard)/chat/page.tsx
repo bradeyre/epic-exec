@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { useCurrentCompany } from '@/contexts/company-context';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,11 +42,12 @@ const SUGGESTED_QUESTIONS = [
 // ---------------------------------------------------------------------------
 
 export default function ChatPage() {
+  const company = useCurrentCompany();
+  const companyId = company?.id || null;
+  const companyName = company?.name || '';
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [companyId, setCompanyId] = useState<string | null>(null);
-  const [companyName, setCompanyName] = useState('');
   const [loadingHistory, setLoadingHistory] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -56,23 +58,6 @@ export default function ChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  // 1. Load company
-  useEffect(() => {
-    async function loadCompany() {
-      try {
-        const res = await fetch('/api/companies');
-        const data = await res.json();
-        if (data.success && data.companies?.length > 0) {
-          setCompanyId(data.companies[0].id);
-          setCompanyName(data.companies[0].name);
-        }
-      } catch (err) {
-        console.error('Failed to load company', err);
-      }
-    }
-    loadCompany();
-  }, []);
 
   // 2. Load chat history
   const loadHistory = useCallback(async () => {

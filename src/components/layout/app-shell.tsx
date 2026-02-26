@@ -17,6 +17,10 @@ import {
   MessageCircle,
   Target,
   FileText,
+  Building2,
+  ChevronsUpDown,
+  Check,
+  Loader2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -25,6 +29,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { useCompany } from '@/contexts/company-context';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -34,6 +39,7 @@ export function AppShell({ children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { company, companies, switchCompany, isLoading: companiesLoading } = useCompany();
 
   const handleLogout = () => {
     localStorage.removeItem('isAuthenticated');
@@ -92,6 +98,53 @@ export function AppShell({ children }: AppShellProps) {
                 <p className="text-xs text-muted-foreground">Executive Intelligence</p>
               </div>
             </Link>
+          </div>
+
+          {/* Company Selector */}
+          <div className="px-4 py-3 border-b">
+            {companiesLoading ? (
+              <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Loading...</span>
+              </div>
+            ) : companies.length <= 1 ? (
+              /* Single company — just show the name */
+              <div className="flex items-center gap-2 px-3 py-2">
+                <Building2 className="w-4 h-4 text-accent" />
+                <span className="text-sm font-medium text-foreground truncate">
+                  {company?.name || 'No company'}
+                </span>
+              </div>
+            ) : (
+              /* Multiple companies — dropdown selector */
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left">
+                    <Building2 className="w-4 h-4 text-accent flex-shrink-0" />
+                    <span className="text-sm font-medium text-foreground truncate flex-1">
+                      {company?.name || 'Select company'}
+                    </span>
+                    <ChevronsUpDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  {companies.map((c) => (
+                    <DropdownMenuItem
+                      key={c.id}
+                      onClick={() => switchCompany(c.id)}
+                      className="flex items-center gap-2"
+                    >
+                      {c.id === company?.id ? (
+                        <Check className="w-4 h-4 text-accent" />
+                      ) : (
+                        <div className="w-4 h-4" />
+                      )}
+                      <span className="truncate">{c.name}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
 
           {/* Navigation */}

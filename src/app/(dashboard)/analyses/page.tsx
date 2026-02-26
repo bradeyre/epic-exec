@@ -25,6 +25,7 @@ import {
   CheckSquare,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { useCurrentCompany } from '@/contexts/company-context';
 
 interface AnalysisRecord {
   id: string;
@@ -96,35 +97,20 @@ function getExecutiveSummary(outputData: any): string | null {
 }
 
 export default function AnalysesPage() {
+  const company = useCurrentCompany();
   const [analyses, setAnalyses] = useState<AnalysisRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [companyId, setCompanyId] = useState<string | null>(null);
 
-  // Fetch company
+  // Fetch analyses when company changes
   useEffect(() => {
-    fetch('/api/companies')
-      .then((r) => r.json())
-      .then((data) => {
-        const companies = data.companies || data.data || [];
-        if (data.success && companies.length > 0) {
-          setCompanyId(companies[0].id);
-        } else {
-          // No companies — stop loading
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        setLoading(false);
-      });
-  }, []);
-
-  // Fetch analyses
-  useEffect(() => {
-    if (!companyId) return;
+    if (!company?.id) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    fetch(`/api/analyses?companyId=${companyId}&limit=50`)
+    fetch(`/api/analyses?companyId=${company.id}&limit=50`)
       .then((r) => r.json())
       .then((data) => {
         if (data.success) {
@@ -133,7 +119,7 @@ export default function AnalysesPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [companyId]);
+  }, [company?.id]);
 
   const filtered = analyses.filter((a) => {
     const matchesSearch =

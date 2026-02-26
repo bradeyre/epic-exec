@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs } from '@/components/ui/tabs';
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { useCurrentCompany } from '@/contexts/company-context';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -668,31 +669,16 @@ function AddTaskModal({
 // ---------------------------------------------------------------------------
 
 export default function TasksPage() {
+  const company = useCurrentCompany();
+  const companyId = company?.id || null;
   const [activeTab, setActiveTab] = useState('kanban');
   const [searchQuery, setSearchQuery] = useState('');
   const [tasks, setTasks] = useState<UITask[]>([]);
   const [loading, setLoading] = useState(true);
-  const [companyId, setCompanyId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<UITask | null>(null);
 
-  // 1. Fetch company on mount
-  useEffect(() => {
-    async function loadCompany() {
-      try {
-        const res = await fetch('/api/companies');
-        const data = await res.json();
-        if (data.success && data.companies?.length > 0) {
-          setCompanyId(data.companies[0].id);
-        }
-      } catch (err) {
-        console.error('Failed to load company', err);
-      }
-    }
-    loadCompany();
-  }, []);
-
-  // 2. Fetch tasks when companyId is ready
+  // Fetch tasks when companyId is ready
   const fetchTasks = useCallback(async () => {
     if (!companyId) return;
     try {
