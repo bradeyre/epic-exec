@@ -163,6 +163,8 @@ export function StepDataIngestion({
         setUploadProgress(100);
 
         if (result.success) {
+          // Auto-detect entity from file content if the API returns one
+          const autoEntity = result.detectedEntity as DataFile['entity'] | undefined;
           accumulatedFiles = accumulatedFiles.map((f) =>
             f.id === fileId
               ? {
@@ -170,6 +172,7 @@ export function StepDataIngestion({
                   status: 'ready' as const,
                   preview: result.preview,
                   extractedText: result.extractedText,
+                  entity: autoEntity || f.entity,
                 }
               : f
           );

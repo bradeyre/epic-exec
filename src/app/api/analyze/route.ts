@@ -99,7 +99,14 @@ ${focusList}
 ${req.additionalFocus ? `\nAdditional focus: ${req.additionalFocus.replace(/\[JIM_GENERAL\]\s*/g, '').trim()}` : ''}
 
 ## Financial Data Provided
-${req.uploadedData || 'No specific data uploaded — provide analysis based on the company context and industry benchmarks. Clearly label all insights as benchmark-based.'}${advisoryInstructions}${jimGeneralInstructions}
+${req.uploadedData || 'No specific data uploaded — provide analysis based on the company context and industry benchmarks. Clearly label all insights as benchmark-based.'}
+
+## Data Interpretation Notes
+- Data is in pipe-delimited format. Each file section starts with "--- File: ..." and may include an [Entity: ...] tag.
+- Rows marked with **bold** labels are totals/subtotals computed from line items above them.
+- All monetary values are in ZAR (South African Rand) unless stated otherwise.
+- Multiple files may represent different entities, time periods, or statement types (P&L, Balance Sheet).
+- CRITICAL: Use the ACTUAL numbers in the data. Do not say "data not available" if numbers are present — read the pipe-delimited rows carefully.${advisoryInstructions}${jimGeneralInstructions}
 
 ## Output Style
 - Executive summary: 2-3 sentences MAX. No filler. Start with the most important finding.
@@ -187,6 +194,11 @@ export async function POST(request: NextRequest) {
 
     const anthropic = new Anthropic({ apiKey });
     const prompt = buildCFOPrompt(body);
+
+    // Debug logging
+    console.log(`[analyze] uploadedData length: ${body.uploadedData?.length || 0} chars`);
+    console.log(`[analyze] focusAreas: ${body.focusAreas?.join(', ') || 'none'}`);
+    console.log(`[analyze] prompt length: ${prompt.length} chars`);
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20250929',

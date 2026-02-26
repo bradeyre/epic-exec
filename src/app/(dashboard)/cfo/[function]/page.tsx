@@ -712,6 +712,14 @@ export default function CFOFunctionPage() {
 
       const uploadedData = fileParts.join('\n\n');
 
+      // Debug logging — helps trace data passing issues
+      console.log(`[runAnalysis] ${fileParts.length} file(s) ready, uploadedData length: ${uploadedData.length} chars`);
+      if (uploadedData.length > 0) {
+        console.log(`[runAnalysis] First 300 chars:`, uploadedData.substring(0, 300));
+      } else {
+        console.warn('[runAnalysis] WARNING: uploadedData is EMPTY — no file data will be sent to Claude');
+      }
+
       const selectedFocusAreas = focusAreas
         .filter((a) => a.selected)
         .map((a) => a.title);
