@@ -127,7 +127,7 @@ export function AppShell({ children }: AppShellProps) {
                     <ChevronsUpDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuContent align="start" className="w-56 z-50">
                   {companies.map((c) => (
                     <DropdownMenuItem
                       key={c.id}
