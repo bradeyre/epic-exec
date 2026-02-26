@@ -1,0 +1,693 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserRole {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  COMPANY_ADMIN
+  ANALYST
+  VIEWER
+}
+
+enum Module {
+  CMO
+  CFO
+  COO
+  HR
+  SALES
+}
+
+enum AnalysisStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum TaskPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum TaskEffort {
+  QUICK
+  MEDIUM
+  SIGNIFICANT
+}
+
+enum ScheduleFrequency {
+  DAILY
+  WEEKLY
+  FORTNIGHTLY
+  MONTHLY
+  QUARTERLY
+  ANNUALLY
+  CUSTOM
+}
+
+enum ScheduleTriggerType {
+  REMINDER
+  AUTO_RUN
+}
+
+enum NewsletterStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  SENT
+}
+
+enum HealthScore {
+  RED
+  AMBER
+  GREEN
+}
+
+enum PromptStatus {
+  ACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+enum DataSourceType {
+  CSV
+  EXCEL
+  PDF
+  SCREENSHOT
+  MCP_GOOGLE_ADS
+  MCP_META_ADS
+  MCP_XERO
+  MANUAL
+}
+
+// ============================================================================
+// NEXTAUTH MODELS
+// ============================================================================
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================================
+// CORE TENANT & COMPANY MODELS
+// ============================================================================
+
+model Tenant {
+  id              String    @id @default(cuid())
+  name            String
+  slug            String    @unique
+  domain          String?   @unique
+  logo            String?
+  primaryColor    String    @default("#2563EB")
+  plan            String    @default("STARTER")
+  features        Json      @default("{}")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  companies       Company[]
+  users           User[]
+  prompts         Prompt[]
+  schedules       Schedule[]
+  auditLogs       AuditLog[]
+
+  @@index([slug])
+  @@index([domain])
+}
+
+model Company {
+  id              String    @id @default(cuid())
+  tenantId        String
+  name            String
+  slug            String
+  industry        String?
+  description     String?
+  website         String?
+  logoUrl         String?
+  currency        String    @default("ZAR")
+  taxId           String?
+  countryCode     String    @default("ZA")
+  settings        Json      @default("{}")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users           CompanyUser[]
+  analyses        Analysis[]
+  tasks           Task[]
+  brandVoiceProfile BrandVoiceProfile?
+  newsletterDrafts NewsletterDraft[]
+  newsletterTemplates NewsletterTemplate[]
+  mcpConnections  McpConnection[]
+  schedules       Schedule[]
+  dataPoints      AnalysisDataPoint[]
+  auditLogs       AuditLog[]
+  proactiveAlerts ProactiveAlert[]
+  chatMessages    ChatMessage[]
+  goals           Goal[]
+  contextNotes    ContextNote[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([slug])
+}
+
+model User {
+  id              String    @id @default(cuid())
+  tenantId        String
+  email           String    @unique
+  name            String?
+  passwordHash    String?
+  image           String?
+  emailVerified   DateTime?
+  role            UserRole  @default(VIEWER)
+  isActive        Boolean   @default(true)
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  accounts        Account[]
+  sessions        Session[]
+  companyUsers    CompanyUser[]
+  analyses        Analysis[]
+  assignedTasks   Task[]    @relation("AssignedTo")
+  promptVersions  PromptVersion[] @relation("CreatedBy")
+  newsletters     NewsletterDraft[] @relation("EditedBy")
+  chatMessages    ChatMessage[]
+  auditLogs       AuditLog[]
+  goals           Goal[]
+  contextNotes    ContextNote[]
+
+  @@index([tenantId])
+  @@index([email])
+}
+
+model CompanyUser {
+  id              String    @id @default(cuid())
+  userId          String
+  companyId       String
+  role            UserRole  @default(ANALYST)
+  createdAt       DateTime  @default(now())
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+  @@index([userId])
+  @@index([companyId])
+}
+
+// ============================================================================
+// BRAND VOICE & CONTENT
+// ============================================================================
+
+model BrandVoiceProfile {
+  id                    String    @id @default(cuid())
+  companyId             String    @unique
+  tone                  String?
+  formality             Int       @default(50)
+  humour                Int       @default(30)
+  emojiUsage            String    @default("minimal")
+  vocabularyAlways      String[]  @default([])
+  vocabularyNever       String[]  @default([])
+  sentenceStyle         String    @default("professional")
+  ctaStyle              String    @default("direct")
+  audienceRelationship  String    @default("professional")
+  contentPillars        String[]  @default([])
+  seasonalPriorities    String[]  @default([])
+  sampleOutputs         Json      @default("[]")
+  visualTone            Json      @default("{}")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  company               Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+// ============================================================================
+// PROMPT MANAGEMENT
+// ============================================================================
+
+model Prompt {
+  id                String    @id @default(cuid())
+  tenantId          String
+  module            Module
+  functionName      String
+  title             String
+  description       String?
+  tags              String[]  @default([])
+  currentVersionId  String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  versions          PromptVersion[]
+  analyses          Analysis[]
+
+  @@unique([tenantId, module, functionName])
+  @@index([tenantId])
+  @@index([module])
+}
+
+model PromptVersion {
+  id                String    @id @default(cuid())
+  promptId          String
+  version           String
+  systemPrompt      String    @db.Text
+  userPromptTemplate String   @db.Text
+  variables         Json      @default("[]")
+  changelog         String?
+  status            PromptStatus @default(ACTIVE)
+  createdBy         String
+  satisfaction      Float?
+  usageCount        Int       @default(0)
+  createdAt         DateTime  @default(now())
+
+  prompt            Prompt    @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  creator           User      @relation("CreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  analyses          Analysis[]
+
+  @@unique([promptId, version])
+  @@index([promptId])
+  @@index([status])
+}
+
+// ============================================================================
+// ANALYSIS & RESULTS
+// ============================================================================
+
+model Analysis {
+  id                String    @id @default(cuid())
+  companyId         String
+  userId            String
+  module            Module
+  functionName      String
+  title             String
+  promptId          String?
+  promptVersionId   String?
+  inputData         Json      @default("{}")
+  outputData        Json      @default("{}")
+  healthScore       HealthScore?
+  score             Int?      @default(0)
+  status            AnalysisStatus @default(PENDING)
+  processingTimeMs  Int?
+  modelUsed         String    @default("claude-opus-4-6")
+  tokenCount        Int?
+  costEstimate      Float?
+  createdAt         DateTime  @default(now())
+  completedAt       DateTime?
+
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  prompt            Prompt?   @relation(fields: [promptId], references: [id], onDelete: SetNull)
+  promptVersion     PromptVersion? @relation(fields: [promptVersionId], references: [id], onDelete: SetNull)
+  tasks             Task[]
+  dataPoints        AnalysisDataPoint[]
+  scheduleRuns      ScheduleRun[]
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([status])
+  @@index([module, functionName])
+  @@index([createdAt])
+}
+
+model AnalysisDataPoint {
+  id                String    @id @default(cuid())
+  analysisId        String
+  companyId         String
+  metric            String
+  value             Float
+  unit              String?
+  period            String
+  periodType        String
+  category          String
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+
+  analysis          Analysis  @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, metric, period])
+  @@index([analysisId])
+  @@index([category])
+}
+
+// ============================================================================
+// TASKS & ACTION ITEMS
+// ============================================================================
+
+model Task {
+  id                      String    @id @default(cuid())
+  companyId               String
+  analysisId              String?
+  title                   String
+  description             String?
+  priority                TaskPriority @default(MEDIUM)
+  status                  TaskStatus @default(TODO)
+  effort                  TaskEffort @default(MEDIUM)
+  category                String?
+  dueDate                 DateTime?
+  assignedToId            String?
+  mcpEligible             Boolean   @default(false)
+  completedAt             DateTime?
+  completionNote          String?
+  performanceImpact       String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  company                 Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  analysis                Analysis? @relation(fields: [analysisId], references: [id], onDelete: SetNull)
+  assignedTo              User?     @relation("AssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  comments                TaskComment[]
+
+  @@index([companyId])
+  @@index([analysisId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedToId])
+}
+
+// ============================================================================
+// SCHEDULING & AUTOMATION
+// ============================================================================
+
+model Schedule {
+  id                String    @id @default(cuid())
+  companyId         String
+  tenantId          String
+  module            Module
+  functionName      String
+  title             String
+  frequency         ScheduleFrequency @default(MONTHLY)
+  cronExpression    String?
+  triggerType       ScheduleTriggerType @default(REMINDER)
+  recipientEmails   String[]  @default([])
+  escalationEmail   String?
+  escalationDays    Int       @default(3)
+  isActive          Boolean   @default(true)
+  lastRunAt         DateTime?
+  nextRunAt         DateTime?
+  config            Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  runs              ScheduleRun[]
+
+  @@index([companyId])
+  @@index([tenantId])
+  @@index([isActive, nextRunAt])
+}
+
+model ScheduleRun {
+  id                String    @id @default(cuid())
+  scheduleId        String
+  status            String    @default("triggered")
+  analysisId        String?
+  emailSentAt       DateTime?
+  error             String?
+  createdAt         DateTime  @default(now())
+
+  schedule          Schedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  analysis          Analysis? @relation(fields: [analysisId], references: [id], onDelete: SetNull)
+
+  @@index([scheduleId])
+  @@index([analysisId])
+}
+
+// ============================================================================
+// NEWSLETTER
+// ============================================================================
+
+model NewsletterDraft {
+  id                String    @id @default(cuid())
+  companyId         String
+  title             String
+  subjectLineOptions String[] @default([])
+  previewText       String?
+  bodyHtml          String?   @db.Text
+  bodyText          String?   @db.Text
+  status            NewsletterStatus @default(DRAFT)
+  scheduledSendAt   DateTime?
+  contentSources    Json      @default("[]")
+  aiSuggestions     Json?
+  editedByUserId    String?
+  humanEdits        Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  approvedAt        DateTime?
+  sentAt            DateTime?
+
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  editedBy          User?     @relation("EditedBy", fields: [editedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([status])
+}
+
+model NewsletterTemplate {
+  id                String    @id @default(cuid())
+  companyId         String
+  name              String
+  structure         Json
+  htmlTemplate      String?   @db.Text
+  isDefault         Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+// ============================================================================
+// INTEGRATIONS
+// ============================================================================
+
+model McpConnection {
+  id                String    @id @default(cuid())
+  companyId         String
+  platform          String
+  accessToken       String    @db.Text
+  refreshToken      String?   @db.Text
+  tokenExpiresAt    DateTime?
+  scopes            String[]  @default([])
+  accountId         String?
+  isActive          Boolean   @default(true)
+  lastSyncAt        DateTime?
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, platform])
+  @@index([companyId])
+}
+
+// ============================================================================
+// MONITORING & ALERTS
+// ============================================================================
+
+model ProactiveAlert {
+  id                String    @id @default(cuid())
+  companyId         String
+  module            Module
+  title             String
+  description       String
+  severity          HealthScore @default(AMBER)
+  metric            String?
+  triggerValue      Float?
+  thresholdValue    Float?
+  isRead            Boolean   @default(false)
+  isDismissed       Boolean   @default(false)
+  suggestedAnalysis String?
+  createdAt         DateTime  @default(now())
+  readAt            DateTime?
+
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// CHAT & CONVERSATIONAL
+// ============================================================================
+
+model ChatMessage {
+  id                String    @id @default(cuid())
+  companyId         String
+  userId            String
+  role              String
+  content           String    @db.Text
+  referencedAnalyses String[] @default([])
+  referencedData    Json?
+  createdAt         DateTime  @default(now())
+
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// AUDIT & COMPLIANCE
+// ============================================================================
+
+model AuditLog {
+  id                String    @id @default(cuid())
+  tenantId          String
+  companyId         String?
+  userId            String?
+  action            String
+  resource          String
+  resourceId        String?
+  details           Json?
+  ipAddress         String?
+  createdAt         DateTime  @default(now())
+
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company           Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  user              User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([companyId])
+  @@index([userId])
+}
+
+// ============================================================================
+// GOALS & PROGRESS TRACKING
+// ============================================================================
+
+model Goal {
+  id              String    @id @default(cuid())
+  companyId       String
+  userId          String
+  title           String
+  target          String
+  deadline        DateTime
+  breakdown       Json?     // Jim's generated milestones, levers, risks
+  status          String    @default("active") // active, achieved, abandoned
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  progress        GoalProgress[]
+
+  @@index([companyId])
+  @@index([userId])
+}
+
+model GoalProgress {
+  id              String    @id @default(cuid())
+  goalId          String
+  month           String    // "2026-03"
+  actualData      Json?     // uploaded financials summary
+  jimFeedback     String?   @db.Text
+  onTrack         Boolean?
+  createdAt       DateTime  @default(now())
+
+  goal            Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+}
+
+// ============================================================================
+// CONTEXT NOTES (Jim's memory of user-provided context)
+// ============================================================================
+
+model ContextNote {
+  id                String    @id @default(cuid())
+  companyId         String
+  userId            String
+  note              String    @db.Text
+  source            String    // "chat", "manual", "analysis"
+  relatedAnalysisId String?
+  createdAt         DateTime  @default(now())
+
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([companyId])
+  @@index([userId])
+}
+
+// ============================================================================
+// TASK COMMENTS
+// ============================================================================
+
+model TaskComment {
+  id              String    @id @default(cuid())
+  taskId          String
+  userId          String?
+  content         String    @db.Text
+  createdAt       DateTime  @default(now())
+
+  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}

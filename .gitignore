@@ -1,0 +1,54 @@
+node_modules/
+.next/
+out/
+dist/
+build/
+
+.env
+.env.local
+.env.*.local
+
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+.idea
+*.iml
+
+.turbo/
+.cache/
+.nyc_output/
+coverage/
+
+npm-debug.log
+npm-error.log
+yarn-error.log
+yarn-debug.log
+
+# Prisma
+prisma/migrations/
+.prisma/
+
+# Testing
+.coverage
+*.lcov
+
+# IDE
+.vscode/settings.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp files
+*.tmp
+*.temp
+.temp/
+
+# Build artifacts
+.vercel
