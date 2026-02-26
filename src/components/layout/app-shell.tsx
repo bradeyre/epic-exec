@@ -21,6 +21,7 @@ import {
   ChevronsUpDown,
   Check,
   Loader2,
+  Plus,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -40,6 +41,39 @@ export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { company, companies, switchCompany, isLoading: companiesLoading } = useCompany();
+
+  // Add-company dialog state
+  const [showAddCompany, setShowAddCompany] = useState(false);
+  const [newCompanyName, setNewCompanyName] = useState('');
+  const [newCompanyIndustry, setNewCompanyIndustry] = useState('');
+  const [addingCompany, setAddingCompany] = useState(false);
+
+  const handleAddCompany = async () => {
+    if (!newCompanyName.trim()) return;
+    setAddingCompany(true);
+    try {
+      const res = await fetch('/api/companies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newCompanyName.trim(),
+          industry: newCompanyIndustry.trim() || 'General',
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.company) {
+        // Refresh the page so the CompanyProvider re-fetches companies
+        setShowAddCompany(false);
+        setNewCompanyName('');
+        setNewCompanyIndustry('');
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('Failed to add company:', err);
+    } finally {
+      setAddingCompany(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('isAuthenticated');
@@ -76,6 +110,11 @@ export function AppShell({ children }: AppShellProps) {
         { label: 'Chat with Jim', href: '/chat', icon: MessageCircle },
       ],
     },
+    {
+      label: 'Settings',
+      href: '/settings',
+      icon: Settings,
+    },
   ];
 
   return (
@@ -107,16 +146,7 @@ export function AppShell({ children }: AppShellProps) {
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>Loading...</span>
               </div>
-            ) : companies.length <= 1 ? (
-              /* Single company — just show the name */
-              <div className="flex items-center gap-2 px-3 py-2">
-                <Building2 className="w-4 h-4 text-accent" />
-                <span className="text-sm font-medium text-foreground truncate">
-                  {company?.name || 'No company'}
-                </span>
-              </div>
             ) : (
-              /* Multiple companies — dropdown selector */
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left">
@@ -142,6 +172,14 @@ export function AppShell({ children }: AppShellProps) {
                       <span className="truncate">{c.name}</span>
                     </DropdownMenuItem>
                   ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setShowAddCompany(true)}
+                    className="flex items-center gap-2 text-accent"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Company</span>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
@@ -223,14 +261,20 @@ export function AppShell({ children }: AppShellProps) {
                   <ChevronDown className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-56 z-50">
                 <DropdownMenuItem disabled>
                   <p className="text-xs text-muted-foreground">user@example.com</p>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Settings</DropdownMenuItem>
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Billing</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/settings')}>
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/settings')}>
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/settings')}>
+                  Billing
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-red-600">
                   <LogOut className="w-4 h-4 mr-2" />
@@ -273,7 +317,9 @@ export function AppShell({ children }: AppShellProps) {
                   <p className="text-xs text-muted-foreground">user@example.com</p>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Settings</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/settings')}>
+                  Settings
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout} className="text-red-600">
                   <LogOut className="w-4 h-4 mr-2" />
                   Sign Out
@@ -297,6 +343,73 @@ export function AppShell({ children }: AppShellProps) {
           className="fixed inset-0 bg-black/50 z-30 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
+      )}
+
+      {/* Add Company Dialog */}
+      {showAddCompany && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setShowAddCompany(false)}
+          />
+          <div className="relative bg-card border border-border rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+            <h2 className="text-lg font-bold text-foreground mb-4">
+              Add New Company
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+                  Company Name *
+                </label>
+                <input
+                  type="text"
+                  value={newCompanyName}
+                  onChange={(e) => setNewCompanyName(e.target.value)}
+                  placeholder="e.g. Acme Trading"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent text-sm"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+                  Industry
+                </label>
+                <input
+                  type="text"
+                  value={newCompanyIndustry}
+                  onChange={(e) => setNewCompanyIndustry(e.target.value)}
+                  placeholder="e.g. E-commerce / Retail"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                variant="ghost"
+                onClick={() => setShowAddCompany(false)}
+                disabled={addingCompany}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAddCompany}
+                disabled={!newCompanyName.trim() || addingCompany}
+              >
+                {addingCompany ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Company'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
