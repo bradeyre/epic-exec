@@ -11,7 +11,7 @@ export default function Home() {
     const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
 
     if (isAuthenticated) {
-      router.push('/cmo');
+      router.push('/cfo');
     } else {
       router.push('/login');
     }
