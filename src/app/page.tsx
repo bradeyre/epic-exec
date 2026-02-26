@@ -9,8 +9,9 @@ export default function Home() {
   useEffect(() => {
     // Check if user is authenticated and redirect accordingly
     const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+    const token = localStorage.getItem('vx-token');
 
-    if (isAuthenticated) {
+    if (isAuthenticated && token) {
       router.push('/cfo');
     } else {
       router.push('/login');

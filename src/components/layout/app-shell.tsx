@@ -78,6 +78,8 @@ export function AppShell({ children }: AppShellProps) {
   const handleLogout = () => {
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('userEmail');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('vx-token');
     router.push('/login');
   };
 

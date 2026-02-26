@@ -14,12 +14,22 @@ export default function DashboardLayout({
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Skip auth for now - auto-authenticate
-    setIsAuthenticated(true);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('isAuthenticated', 'true');
+    // Check if user has a valid session
+    const authenticated = localStorage.getItem('isAuthenticated') === 'true';
+    const token = localStorage.getItem('vx-token');
+
+    if (authenticated && token) {
+      setIsAuthenticated(true);
+    } else {
+      // Clear any stale partial state
+      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('vx-token');
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('userName');
+      setIsAuthenticated(false);
+      router.replace('/login');
     }
-  }, []);
+  }, [router]);
 
   if (isAuthenticated === null) {
     return (
@@ -33,7 +43,7 @@ export default function DashboardLayout({
   }
 
   if (!isAuthenticated) {
-    return null; // Router will redirect to login
+    return null; // Router redirecting to login
   }
 
   return (
